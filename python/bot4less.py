@@ -1,3 +1,4 @@
+import argparse
 import datetime
 import logging
 import sys
@@ -8,8 +9,6 @@ from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.chrome.options import Options
 
-CHROME_DRIVER_PATH="/usr/local/bin/chromedriver"
-
 FIT4LESS_GYMMANAGER_LOGIN_URL = "https://myfit4less.gymmanager.com/portal/login.asp"
 
 LOGIN_EMAIL = "hardikvala24@gmail.com"
@@ -19,13 +18,22 @@ LOGIN_PASSWORD = "bL3t-7here-83-L"
 # a maximum of 2 days in advance. But bookings become available at midnight, ET,
 # and this script will run at 9 pm, PT, so necessarily, the value here is 3
 # days.
-NUM_FUTURE_BOOKING_DAYS = 3
 
 BOOKING_TIMES = ["10:00 AM", "11:30 AM", "9:30 AM", "11:00 AM"]
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 
+parser = argparse.ArgumentParser()
+parser.add_argument('--chromedriver_path', type=str,
+                    help="Path to chromedriver executable.")
+parser.add_argument('--num_future_booking_days', type=int, default=2,
+                    help="Number of days into the future to book a workout slot.")
+
 def main():
+    ## Parse commandline arguments ##
+
+    args = parser.parse_args()
+
     ## Initialize web driver ## 
 
     chrome_options = Options()
@@ -35,87 +43,97 @@ def main():
     # is not clickable at point (400, 579). Other element would receive the click:
     # <div class="footer">...</div>
     # chrome_options.add_argument("--headless")
+    
+    logging.info("chromedriver_path: %s" % args.chromedriver_path)
 
-    with webdriver.Chrome(executable_path=CHROME_DRIVER_PATH, options=chrome_options) as driver:
-        ## Load Fit4Less gymmanager web page ##
-        logging.info("Visiting %s..." % FIT4LESS_GYMMANAGER_LOGIN_URL)
+    if args.chromedriver_path:
+        with webdriver.Chrome(executable_path=args.chromedriver_path, options=chrome_options) as driver:
+            book_slot(driver, args.num_future_booking_days)
+    else:
+        with webdriver.Chrome(options=chrome_options) as driver:
+            book_slot(driver, args.num_future_booking_days)
 
-        driver.get(FIT4LESS_GYMMANAGER_LOGIN_URL) 
+def book_slot(driver, num_future_booking_days):
+    ## Load Fit4Less gymmanager web page ##
+    logging.info("Visiting %s..." % FIT4LESS_GYMMANAGER_LOGIN_URL)
 
-        time.sleep(1)
+    driver.get(FIT4LESS_GYMMANAGER_LOGIN_URL) 
 
-        ## Login ##
-        logging.info("Logging in...")
-        
-        email_field = driver.find_element_by_name("emailaddress")
-        password_field = driver.find_element_by_name("password")
+    time.sleep(1)
 
-        action = ActionChains(driver)
-        action.click(on_element=email_field)
-        action.send_keys(LOGIN_EMAIL)
-        action.click(on_element=password_field)
-        action.send_keys(LOGIN_PASSWORD)
-        action.perform()
+    ## Login ##
+    logging.info("Logging in...")
+    
+    email_field = driver.find_element_by_name("emailaddress")
+    password_field = driver.find_element_by_name("password")
 
-        login_button = driver.find_element_by_id("loginButton")
-        login_button.click()
+    action = ActionChains(driver)
+    action.click(on_element=email_field)
+    action.send_keys(LOGIN_EMAIL)
+    action.click(on_element=password_field)
+    action.send_keys(LOGIN_PASSWORD)
+    action.perform()
 
-        time.sleep(1)
+    login_button = driver.find_element_by_id("loginButton")
+    login_button.click()
 
-        ## Select latest booking date ##
-        logging.info("Select booking date...")
-        
-        try:
-            select_day_button = driver.find_element_by_id("btn_date_select")
-        except NoSuchElementException:
-            logging.error("Cannot select booking date")
-            sys.exit(1)
+    time.sleep(1)
 
-        select_day_button.click() 
+    ## Select latest booking date ##
+    logging.info("Select booking date...")
+    
+    try:
+        select_day_button = driver.find_element_by_id("btn_date_select")
+    except NoSuchElementException:
+        logging.error("Cannot select booking date")
+        sys.exit(1)
 
-        time.sleep(1)
+    select_day_button.click() 
 
-        now = datetime.datetime.now()
-        latest_booking_date = now + datetime.timedelta(days=NUM_FUTURE_BOOKING_DAYS)
+    time.sleep(1)
 
-        logging.info("Booking date: %s" % latest_booking_date.strftime('%Y.%m.%d'))
+    now = datetime.datetime.now()
+    latest_booking_date = now + datetime.timedelta(days=num_future_booking_days)
 
-        booking_date_id = latest_booking_date.strftime('date_%Y-%m-%d')
-        latest_booking_date_button = driver.find_element_by_id(booking_date_id)
-        latest_booking_date_button.click() 
+    logging.info("Booking date: %s" % latest_booking_date.strftime('%Y.%m.%d'))
 
-        time.sleep(1)
+    booking_date_id = latest_booking_date.strftime('date_%Y-%m-%d')
+    latest_booking_date_button = driver.find_element_by_id(booking_date_id)
+    latest_booking_date_button.click() 
 
-        ## Find time slots ##
-        logging.info("Finding time slots...")
+    time.sleep(1)
 
-        try:
-            time_slots = driver.find_elements_by_xpath("//div[@class=\"available-slots\"]/div[@class=\"time-slot\"]")
-        except NoSuchElementException:
-            logging.error("No time slots found")
-            sys.exit(1)    
+    ## Find time slots ##
+    logging.info("Finding time slots...")
 
-        if len(time_slots) == 0:
-            logging.error("No time slots found")
-            sys.exit(1)    
+    try:
+        time_slots = driver.find_elements_by_xpath("//div[@class=\"available-slots\"]/div[@class=\"time-slot\"]")
+    except NoSuchElementException:
+        logging.error("No time slots found")
+        sys.exit(1)    
 
-        ## Book time slot ##
-        logging.info("Booking time slot...")
+    if len(time_slots) == 0:
+        logging.error("No time slots found")
+        sys.exit(1)    
 
-        for booking_time in BOOKING_TIMES: 
-            for time_slot in time_slots:
-                if time_slot.get_attribute('data-slottime').endswith(booking_time):
-                    time_slot.click()
+    ## Book time slot ##
+    logging.info("Booking time slot...")
 
-                    time.sleep(1)
-                    
-                    time_slot_dialog_book_yes_button = driver.find_element_by_id("dialog_book_yes")
-                    time_slot_dialog_book_yes_button.click()
+    for booking_time in BOOKING_TIMES: 
+        for time_slot in time_slots:
+            if time_slot.get_attribute('data-slottime').endswith(booking_time):
+                time_slot.click()
 
-                    logging.info("Booked time slot on %s at %s" % (latest_booking_date.strftime('%Y.%m.%d'), booking_time))
+                time.sleep(1)
+                
+                time_slot_dialog_book_yes_button = driver.find_element_by_id("dialog_book_yes")
+                time_slot_dialog_book_yes_button.click()
 
-                    sys.exit(0)
-            logging.warning("No time slot found for %s", booking_time)
+                logging.info("Booked time slot on %s at %s" % (latest_booking_date.strftime('%Y.%m.%d'), booking_time))
+
+                sys.exit(0)
+        logging.warning("No time slot found for %s", booking_time)
+
 
 
 if __name__ == "__main__":
