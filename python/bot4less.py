@@ -12,12 +12,6 @@ from selenium.webdriver.chrome.options import Options
 FIT4LESS_GYMMANAGER_LOGIN_URL = "https://myfit4less.gymmanager.com/portal/login.asp"
 
 LOGIN_EMAIL = "hardikvala24@gmail.com"
-LOGIN_PASSWORD = "bL3t-7here-83-L"
-
-# Number of days into the future to book a workout slot. Fit4Less allows booking 
-# a maximum of 2 days in advance. But bookings become available at midnight, ET,
-# and this script will run at 9 pm, PT, so necessarily, the value here is 3
-# days.
 
 BOOKING_TIMES = ["10:00 AM", "11:30 AM", "9:30 AM", "11:00 AM"]
 
@@ -26,6 +20,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(mess
 parser = argparse.ArgumentParser()
 parser.add_argument('--chromedriver_path', type=str,
                     help="Path to chromedriver executable.")
+parser.add_argument('--password_path', type=str,
+                    help="Path to Fit4Less password file.")
 parser.add_argument('--num_future_booking_days', type=int, default=2,
                     help="Number of days into the future to book a workout slot.")
 
@@ -33,6 +29,10 @@ def main():
     ## Parse commandline arguments ##
 
     args = parser.parse_args()
+
+    ## Get Fit4Less login password ##
+
+    password = get_password(args.password_path)
 
     ## Initialize web driver ## 
 
@@ -46,12 +46,16 @@ def main():
     
     if args.chromedriver_path:
         with webdriver.Chrome(executable_path=args.chromedriver_path, options=chrome_options) as driver:
-            book_slot(driver, args.num_future_booking_days)
+            book_slot(driver, password, args.num_future_booking_days)
     else:
         with webdriver.Chrome(options=chrome_options) as driver:
-            book_slot(driver, args.num_future_booking_days)
+            book_slot(driver, password, args.num_future_booking_days)
 
-def book_slot(driver, num_future_booking_days):
+def get_password(password_path):
+    with open(password_path, 'r') as f:
+        return f.read().strip()
+
+def book_slot(driver, password, num_future_booking_days):
     ## Load Fit4Less gymmanager web page ##
     logging.info("Visiting %s..." % FIT4LESS_GYMMANAGER_LOGIN_URL)
 
@@ -69,7 +73,7 @@ def book_slot(driver, num_future_booking_days):
     action.click(on_element=email_field)
     action.send_keys(LOGIN_EMAIL)
     action.click(on_element=password_field)
-    action.send_keys(LOGIN_PASSWORD)
+    action.send_keys(password)
     action.perform()
 
     login_button = driver.find_element_by_id("loginButton")
