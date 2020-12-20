@@ -23,3 +23,9 @@ source ~/Code/bot4less/.venv/bin/activate && python3 ~/Code/bot4less/python/bot4
 (Fit4Less allows booking a maximum of 2 days in advance. But bookings become
 available at midnight, ET, and this script will run at 9 pm, PT, so necessarily,
 the value here is 3 days.)
+
+## VInn-BackOffice Desktop
+
+```
+bot4less.bat
+```
