@@ -44,8 +44,6 @@ def main():
     # <div class="footer">...</div>
     # chrome_options.add_argument("--headless")
     
-    logging.info("chromedriver_path: %s" % args.chromedriver_path)
-
     if args.chromedriver_path:
         with webdriver.Chrome(executable_path=args.chromedriver_path, options=chrome_options) as driver:
             book_slot(driver, args.num_future_booking_days)
